@@ -51,7 +51,7 @@ const AppContent: React.FC = () => {
       </div>
       <div style={{ display: currentPage === 'settings' ? 'block' : 'none' }}>
         <Layout currentPage={currentPage} onNavigate={setCurrentPage}>
-          <SettingsPage />
+          <SettingsPage isActive={currentPage === 'settings'} />
         </Layout>
       </div>
     </>

@@ -47,7 +47,11 @@ const DEFAULT_CONFIG: SystemConfig = {
 
 type SettingsTab = 'api' | 'data' | 'params' | 'directions';
 
-export const SettingsPage: React.FC = () => {
+interface SettingsPageProps {
+  isActive?: boolean;
+}
+
+export const SettingsPage: React.FC<SettingsPageProps> = ({ isActive = true }) => {
   const [config, setConfig] = useState<SystemConfig>(DEFAULT_CONFIG);
   const [activeTab, setActiveTab] = useState<SettingsTab>('api');
   const [showApiKey, setShowApiKey] = useState(false);
@@ -59,10 +63,12 @@ export const SettingsPage: React.FC = () => {
   const [factorLibraries, setFactorLibraries] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Load config from backend on mount
+  // Refresh the backend-backed config whenever the user enters this page.
   useEffect(() => {
-    loadConfig();
-  }, []);
+    if (isActive) {
+      loadConfig();
+    }
+  }, [isActive]);
 
   const loadConfig = async () => {
     setIsLoading(true);
@@ -318,6 +324,8 @@ export const SettingsPage: React.FC = () => {
                   onChange={(e) => updateConfigField('modelName', e.target.value)}
                   className="w-full rounded-lg border border-input bg-background px-4 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary transition-all"
                 >
+                  <option value="deepseek-v4-flash">DeepSeek V4 Flash</option>
+                  <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
                   <option value="deepseek-v3">DeepSeek V3</option>
                   <option value="deepseek-r1">DeepSeek R1</option>
                   <option value="qwen-max">Qwen Max</option>

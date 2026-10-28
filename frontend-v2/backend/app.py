@@ -1088,10 +1088,10 @@ async def get_system_config():
     if exp_yaml_path.exists():
         exp_yaml_content = exp_yaml_path.read_text(encoding="utf-8")
 
-    # Mask API keys for security
+    # Mask credentials for security
     masked_env = {}
     for k, v in dotenv.items():
-        if "KEY" in k.upper() and v:
+        if any(marker in k.upper() for marker in ("KEY", "TOKEN", "SECRET")) and v:
             masked_env[k] = v[:8] + "..." + v[-4:] if len(v) > 12 else "***"
         else:
             masked_env[k] = v
