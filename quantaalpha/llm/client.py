@@ -609,14 +609,32 @@ class APIBackend:
 
     def create_embedding(self, input_content: str | list[str], **kwargs: Any) -> list[Any] | Any:
         input_content_list = [input_content] if isinstance(input_content, str) else input_content
-        resp = self._try_create_chat_completion_or_embedding(
-            input_content_list=input_content_list,
-            embedding=True,
-            **kwargs,
-        )
+        if self.embedding_model:
+            resp = self._try_create_chat_completion_or_embedding(
+                input_content_list=input_content_list,
+                embedding=True,
+                **kwargs,
+            )
+        else:
+            resp = [self._local_embedding(content) for content in input_content_list]
         if isinstance(input_content, str):
             return resp[0]
         return resp
+
+    @staticmethod
+    def _local_embedding(content: str, dimensions: int = 256) -> list[float]:
+        """Deterministic offline embedding for optional local knowledge retrieval."""
+        import hashlib
+        import re
+
+        vector = [0.0] * dimensions
+        tokens = re.findall(r"[a-zA-Z0-9_]+|[\u4e00-\u9fff]", content.lower())
+        for token in tokens:
+            digest = hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest()
+            hashed = int.from_bytes(digest, "big")
+            vector[hashed % dimensions] += 1.0 if hashed & 1 else -1.0
+        norm = sum(value * value for value in vector) ** 0.5
+        return [value / norm for value in vector] if norm else vector
 
     def _create_chat_completion_auto_continue(self, messages: list, **kwargs: dict) -> str:
         """

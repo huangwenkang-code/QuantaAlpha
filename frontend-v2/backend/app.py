@@ -194,6 +194,20 @@ async def _run_mining(task_id: str, req: MiningStartRequest):
         dotenv = _load_dotenv_dict()
         env.update(dotenv)
 
+        # RD-Agent expects an activated Conda environment even when QuantaAlpha
+        # runs from a regular Windows virtual environment.
+        env["CONDA_DEFAULT_ENV"] = (
+            dotenv.get("CONDA_DEFAULT_ENV")
+            or dotenv.get("CONDA_ENV_NAME")
+            or "quantaalpha"
+        )
+        python_dir = str(Path(sys.executable).resolve().parent)
+        env["PATH"] = python_dir + os.pathsep + env.get("PATH", "")
+        env["PYTHONPATH"] = (
+            str(PROJECT_ROOT)
+            + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+        )
+
         # Use experiment_id as suffix to guarantee isolation
         experiment_id = f"exp_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         env["EXPERIMENT_ID"] = experiment_id
@@ -213,16 +227,33 @@ async def _run_mining(task_id: str, req: MiningStartRequest):
         os.makedirs(env["WORKSPACE_PATH"], exist_ok=True)
         os.makedirs(env["PICKLE_CACHE_FOLDER_PATH_STR"], exist_ok=True)
 
-        # Qlib symlink
+        # Qlib compatibility link. QLIB_PROVIDER_URI is authoritative, so a
+        # restricted Windows session must not prevent the experiment starting.
         qlib_data = dotenv.get("QLIB_DATA_DIR", "")
-        if qlib_data:
+        if qlib_data and Path(qlib_data).is_dir():
             qlib_symlink_dir = Path.home() / ".qlib" / "qlib_data"
             qlib_symlink_dir.mkdir(parents=True, exist_ok=True)
             cn_data_link = qlib_symlink_dir / "cn_data"
-            if not cn_data_link.exists() or os.readlink(str(cn_data_link)) != qlib_data:
-                if cn_data_link.is_symlink():
-                    cn_data_link.unlink()
-                cn_data_link.symlink_to(qlib_data)
+            try:
+                needs_link = not cn_data_link.exists()
+                if not needs_link:
+                    needs_link = os.path.realpath(cn_data_link) != os.path.realpath(qlib_data)
+                if needs_link and not cn_data_link.exists():
+                    cn_data_link.symlink_to(qlib_data, target_is_directory=True)
+            except OSError as link_error:
+                task["logs"].append({
+                    "id": _gen_id(),
+                    "timestamp": _now(),
+                    "level": "warning",
+                    "message": f"Qlib compatibility link unavailable; using QLIB_PROVIDER_URI: {link_error}",
+                })
+        elif qlib_data:
+            task["logs"].append({
+                "id": _gen_id(),
+                "timestamp": _now(),
+                "level": "warning",
+                "message": f"QLIB_DATA_DIR does not exist yet: {qlib_data}",
+            })
 
         # Build a temporary config with frontend parameter overrides
         base_config_path = PROJECT_ROOT / "configs" / "experiment.yaml"
@@ -1150,6 +1181,16 @@ async def ws_mining(websocket: WebSocket, task_id: str):
                 "data": tasks[task_id].get("progress", {}),
                 "timestamp": _now(),
             })
+            if tasks[task_id].get("status") in ("completed", "failed"):
+                await websocket.send_json({
+                    "type": "result",
+                    "taskId": task_id,
+                    "data": {
+                        "status": tasks[task_id]["status"],
+                        "metrics": tasks[task_id].get("metrics", {}),
+                    },
+                    "timestamp": _now(),
+                })
             # Send recent logs
             for log in tasks[task_id].get("logs", [])[-20:]:
                 await websocket.send_json({
