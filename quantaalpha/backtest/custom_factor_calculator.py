@@ -347,7 +347,7 @@ class CustomFactorCalculator:
                         cache_location_hit_count += 1
                         results[factor_name] = result
                         success_count += 1
-                        print(f"  [{i+1}/{total}] ✓ H5 cache: {factor_name}")
+                        print(f"  [{i+1}/{total}] [OK] H5 cache: {factor_name}")
                         continue
             
             if use_cache:
@@ -356,11 +356,11 @@ class CustomFactorCalculator:
                     cache_hit_count += 1
                     results[factor_name] = result
                     success_count += 1
-                    print(f"  [{i+1}/{total}] ✓ MD5 cache: {factor_name}")
+                    print(f"  [{i+1}/{total}] [OK] MD5 cache: {factor_name}")
                     continue
             
             need_compute_factors.append((i, factor_info))
-            print(f"  [{i+1}/{total}] ⏳ Pending: {factor_name}")
+            print(f"  [{i+1}/{total}] [PENDING] {factor_name}")
         
         # Pass 2: compute uncached factors
         if need_compute_factors:
@@ -431,7 +431,7 @@ class CustomFactorCalculator:
                             results[factor_name] = result
                             success_count += 1
                             compute_count += 1
-                            print(f" ✓ ({elapsed:.1f}s)")
+                            print(f" [OK] ({elapsed:.1f}s)")
                             if use_cache:
                                 self._save_to_cache(factor_expr, result)
                         else:

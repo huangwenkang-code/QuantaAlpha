@@ -11,6 +11,12 @@ import logging
 import sys
 from pathlib import Path
 
+# The backend captures subprocess output as UTF-8. Force UTF-8 here as well so
+# Windows' default GBK code page cannot break progress messages.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 project_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(project_root))
 
